@@ -1,0 +1,474 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+    <title>geojson converter</title>
+</head>
+<body>
+<h2>GeoJSON convert</h2>
+
+<div id="content"></div>
+
+<!--<script src="./build/bundle.js"></script>-->
+<!--<script src="https://requirejs.org/docs/release/2.3.5/minified/require.js"></script>-->
+<!--<script src="./src/require.js"></script>-->
+<script type="text/javascript" src="http://code.jquery.com/jquery-latest.min.js"></script>
+
+<!--<script src="./src/db.js"></script>-->
+<!--<script src="./src/index.js"></script>-->
+
+<!-- d3.js -->
+<script src="https://unpkg.com/topojson@3"></script>
+<script src="https://d3js.org/d3.v5.js"></script>
+<table width="100%">
+<tr>
+    <td width="20%">
+        <select id="selectCity" onchange="searchCity(this.value)">
+            <option>台北市</option>
+            <option>新北市</option>
+            <option>桃園市</option>
+            <option>基隆市</option>
+            <option>宜蘭縣</option>
+            <option>新竹市</option>
+            <option>新竹縣</option>
+            <option>苗栗縣</option>
+            <option>台中市</option>
+            <option>彰化縣</option>
+            <option>雲林縣</option>
+            <option>嘉義縣</option>
+            <option>嘉義市</option>
+            <option>台南市</option>
+            <option>南投縣</option>
+            <option>高雄市</option>
+            <option>屏東縣</option>
+            <option>澎湖縣</option>
+            <option>台東縣</option>
+            <option>花蓮縣</option>
+        </select>
+        <select id="selectDist" onchange="searchDist(this.value)" style="visibility:hidden"></select>
+        <select id="selectCode" onchange="searchCode(this.value)" style="visibility:hidden"></select>
+    </td>
+
+<!--<br/><br/><br/>-->
+    <td width="50%">
+        <table>
+            <checkbox id="chbox"></checkbox>
+        </table>
+    </td>
+<!--<br/><br/><br/>-->
+<!-- BUTTON CONTROL -START- -->
+    <td>
+        <button id="submit" style="visibility:hidden" onclick="submitBtn()">生成</button>
+
+        <button id="selectAllBtn" style="visibility:hidden" onclick="selectAllCheck()">全選</button>
+
+        <button id="copyBtn" style="visibility:hidden" onclick="copyToClickBoard()">複製GeoJSON</button>
+    </td>
+<!-- BUTTON CONTROL -END- -->
+</tr>
+</table>
+<table style=" border:3px #FFFFFF solid; width:80%; ">
+        <td style=" width:60%; ">
+            <div>
+                <textarea id="textDisplay" style="visibility:visible; width:95%; height:800px" ></textarea>
+            </div>
+        </td>
+        <td style=" width:40%; border:1px solid #00000060;">
+            <div id='canvas'>
+                <svg class="chart" id="chart"></svg>
+            </div>
+            <div id='canvasUp' style="position: absolute;">
+                <svg class="chartUp" id="chartUp" style="position: absolute;"></svg>
+            </div>
+        </td>
+</table>
+
+<div id="selectArea" style="visibility: hidden; position: absolute; background-color:#F2FFFF; border-radius:3px;">
+    <div id="closeTable" style="text-align: left; margin-top:5px; font-size: 20px;"><label style="display:inline-block; color: #CC0000; margin-left:5%;">X</label><label style="display:inline-block; color: #0A0A0A;width:80%; text-align: center; font-weight:bold; margin-right:5%;"></label></div>
+    <table id="displayTable"style="margin:5px; border:1px solid #B5B5B5; background-color:#F5F5F5; border-collapse: collapse;" cellpadding="3" cellspacing="1" border="1">
+        <tr><td style="text-align: center;">Area</td><td></td></tr>
+        <tr><td style="text-align: center;">Code<br>Number</td><td></td></tr>
+    </table>
+</div>
+
+<script>
+    //定義DOM區域
+    distOptionDOM = document.getElementById("selectDist");
+    codeOptionDOM = document.getElementById("selectCode");
+    checkboxDOM = document.getElementById("chbox");
+    submitDOM = document.getElementById("submit");
+    closeTableDOM = document.getElementById("closeTable");
+    selectAllBtnDOM = document.getElementById("selectAllBtn");
+    copyBtnDOM = document.getElementById("copyBtn");
+    textAreaDOM = document.getElementById("textDisplay");
+    //
+   
+
+    //clean all option except city
+    function clearAllSelcet(){
+        deleteAllOptions(document.getElementById("selectDist"));
+        deleteAllOptions(document.getElementById("selectCode"));
+    }
+
+    //選縣市
+    function searchCity(city_name){
+        let href = location.host.split(':')[0];
+        var path="http://"+href+":2020/searchCity/?city=";
+
+        clearAllSelcet();
+        
+        $.ajax({
+            url: path+city_name,
+            //data: city_name,
+            type:"GET",
+            dataType:'text',
+            success: function(data){
+                //alert(msg);
+                //console.log(data.length);
+                deleteAllCheckbox(checkboxDOM);
+                //submit: 0, copy: 0
+                submitDOM.style.visibility = "hidden";
+                selectAllBtnDOM.style.visibility = "hidden";
+                copyBtnDOM.style.visibility = "hidden";
+                if(data.length > 0){
+                    data = JSON.parse(data);
+                    addOption(distOptionDOM,data);
+                    //option: 1, submit: 1, copy: 0, text: 0
+                    distOptionDOM.style.visibility = "visible";
+                    submitDOM.style.visibility = "visible";
+                    selectAllBtnDOM.style.visibility = "visible";
+                    copyBtnDOM.style.visibility = "hidden";
+                    //textAreaDOM.style.visibility = "hidden";
+                    console.log(data);
+                    //直接查詢鄉鎮區 顯示code1
+                    searchDist(distOptionDOM.value);
+                }
+                else
+                {
+                  console.log("no data");
+                  //option: 0, submit: 0, copy: 0, text: 0
+                  distOptionDOM.style.visibility = "hidden";
+                  submitDOM.style.visibility = "hidden";
+                  selectAllBtnDOM.style.visibility = "hidden";
+                  copyBtnDOM.style.visibility = "hidden";
+                  //textAreaDOM.style.visibility = "hidden";
+                  alert("暫無資料");
+                }
+            },
+            error: function(msg){
+                alert("error");
+            }
+        });
+    }
+
+
+    //選鄉鎮區
+    function searchDist(dist_name){
+        let href = location.host.split(':')[0];
+        var path="http://"+href+":2020/searchCity/?city="+document.getElementById("selectCity").value+"&dist="+dist_name;
+
+        //clearAllSelcet();
+        
+        $.ajax({
+            url: path,
+            //data: city_name,
+            type:"GET",
+            dataType:'text',
+            success: function(data){
+                //console.log(data.length);
+                deleteAllCheckbox(checkboxDOM);
+                if(data.length > 0){
+                    data = JSON.parse(data);
+                    addCheckbox(checkboxDOM,data,5);
+                    //submit: 1
+                    submitDOM.style.visibility = "visible";
+                    selectAllBtnDOM.style.visibility = "visible";
+                    console.log(data);
+                }
+                else
+                {
+                    console.log("no data");
+                    //submit: 0, copy: 0, text: 0
+                    submitDOM.style.visibility = "hidden";
+                    selectAllBtnDOM.style.visibility = "hidden";
+                    copyBtnDOM.style.visibility = "hidden";
+                    //textAreaDOM.style.visibility = "hidden";
+                    alert("暫無資料");
+                }
+            },
+            error: function(msg){
+                alert("error");
+            }
+        });
+    }
+
+    //送出生成geojson
+    function submitBtn(){
+        var checkboxes = document.querySelectorAll('input[type=checkbox]:checked');
+        if(checkboxes.length === 0) { alert("請選擇code"); return;}
+        var getchecked = function(){
+            var array = []; 
+
+            for (var i = 0; i < checkboxes.length; i++) {
+                array.push(checkboxes[i].id);
+                //console.log(checkboxes[i].parentElement.textContent);
+            }
+            //console.log(checkboxes);
+            let href = location.host.split(':')[0];
+            var path="http://"+href+":2020/searchCity/?code="+array.slice(",");
+            console.log(path);
+            $.ajax({
+                url: path,
+                type:"GET",
+                dataType:'text',
+                success: function(data){
+                    console.log(data.length);
+                    if(data.length > 0){
+                        //去除json string內的反斜線
+                        textAreaDOM.value = JSON.stringify(data).replaceAll("\\","");
+                        //去除json string前後的雙引號
+                        textAreaDOM.value = textAreaDOM.value.substring(1,textAreaDOM.value.length-1);
+                        initMap(JSON.parse(textAreaDOM.value));
+                        document.getElementById('selectArea').style.visibility = 'hidden';
+                    }
+                    else
+                    {
+                        alert("暫無資料");
+                    }
+                },
+                error: function(msg){
+                    alert("error");
+                }
+            });
+        }
+        getchecked();
+        copyBtnDOM.style.visibility = "visible";
+    }
+
+    //Checkbox 全選
+    function selectAllCheck(){
+        var checkboxes = document.querySelectorAll('input[type=checkbox]');
+        for(var i=0;i<checkboxes.length;i++){checkboxes[i].checked = "checked";}
+    }
+
+    //生成map
+    /**
+     * 基本配置 
+     */
+    var svgWidth = 800;
+    var svgHeight = 800;
+    var padding = 100;
+
+    var svg = d3.select(".chart")
+        .attr("height", svgHeight)
+        .attr("width", svgWidth);
+
+    var svgUp = d3.select(".chartUp")
+        .attr("height", svgHeight)
+        .attr("width", svgWidth);
+
+    var mapContainer = svg.append("g"); //添加mapContainer装载地图绘制内容
+    var mapContainerUp = svgUp.append("g");
+
+    /** 
+     * 获取投影，并配置
+     */
+    var x0 = padding;
+    var y0 = padding;
+    var x1 = svgWidth - padding * 2;
+    var y1 = svgHeight - padding * 2;
+    var projection;
+    var mapPath;
+    var pathGenerator = d3.geoPath().projection(projection);
+    var TWJson;
+    var colorArray = new Array("red","orange","yellow","green","blue","purple","aqua","pink");
+    var colorIndex = 0;
+    document.getElementById("chartUp").style.top = document.getElementById("chart").getBoundingClientRect().top - document.getElementById("chartUp").getBoundingClientRect().top;
+    console.log("testUp = "+document.getElementById("canvasUp").getBoundingClientRect().top);
+    console.log("test = "+document.getElementById("canvas").getBoundingClientRect().top);
+    $.ajax({
+            url: "https://raw.githubusercontent.com/g0v/twgeojson/master/json/twCounty2010.geo.json",//json檔案位置
+            type: "GET",//請求方式為get
+            dataType: "json", //返回資料格式為json
+            success: function(data) {//請求成功完成後要執行的方法 
+                //console.log("data = "+JSON.stringify(data));
+                projection = d3.geoMercator().fitExtent(
+                    [
+                        [x0, y0], //左上角坐标
+                        [x1, y1], //右下角坐标
+                    ], data);
+
+                pathGenerator = d3.geoPath().projection(projection);
+                
+                mapPath = mapContainer.selectAll("path")
+                .data(data.features) //数据绑定
+                .enter()
+                .append("path")
+                .attr("d", pathGenerator) //绘制path
+                .attr("stroke-width", 1)
+                .attr("stroke", "black")   
+                .attr('fill', 'gray')
+                TWJson = data;
+                svg.call(zoom);   
+            }
+        });
+
+    var zoom = d3.zoom()
+        .scaleExtent([-100, 100])  //设置监听范围
+        .on("zoom", zoomed);  //设置监听事件;
+
+
+    function initMap(GeoJson){
+        //taiwan map --start
+        projection = d3.geoMercator().fitExtent(
+                    [
+                        [x0, y0], //左上角坐标
+                        [x1, y1], //右下角坐标
+                    ], GeoJson);
+        mapContainer.selectAll("path").remove();
+        pathGenerator = d3.geoPath().projection(projection);
+
+        mapPath = mapContainer.selectAll("path")
+        .data(TWJson.features) //数据绑定
+        .enter()
+        .append("path")
+        .attr("d", pathGenerator) //绘制path
+        .attr("stroke-width", 2)
+        .attr("stroke", "black")   
+        .attr('fill', 'gray')
+        //taiwan map --finish
+
+        projection = d3.geoMercator().fitExtent(
+                    [
+                        [x0, y0], //左上角坐标
+                        [x1, y1], //右下角坐标
+                    ], GeoJson);
+        pathGenerator = d3.geoPath().projection(projection);
+        //let newColor = colorArray[(colorIndex)%8];
+        let newColor = colorArray[0];
+        console.log(newColor);
+        mapPath = mapContainerUp.selectAll("path")
+        .data(GeoJson.features) //数据绑定
+        .join("path")
+        .attr("d", pathGenerator) //绘制path
+        .attr("stroke-width", 0.5)
+        .attr("stroke", "black")
+        .attr("fill", newColor)
+        .on("mousedown", function(d) {
+            console.log(JSON.stringify(d));
+            document.getElementById("closeTable").children[1].innerText = document.getElementById("selectCity").value;
+            document.getElementById("displayTable").children[0].children[0].children[1].innerText = d.properties.TOWN+" "+d.properties.VILLAGE;
+            document.getElementById("displayTable").children[0].children[1].children[1].innerText = d.properties.CODE1;
+            document.getElementById("selectArea").style.left = getMousePos().x+'px';
+            document.getElementById("selectArea").style.top = (getMousePos().y-10)+'px';
+            //document.getElementById("selectArea").innerText = str;
+            document.getElementById("selectArea").style.visibility = "visible";
+            closeTableDOM.children[0].addEventListener("mousedown", 
+                () => {
+                    document.getElementById("selectArea").style.visibility = "hidden";
+                    closeTableDOM.children[0].removeEventListener("mousedown",{},false);
+                }, false);
+            //console.log(getMousePos().x);
+        })
+        colorIndex++;
+        svgUp.call(zoom);
+    }
+
+    function getMousePos(event) {
+      var e = event || window.event;
+      return {'x':e.clientX,'y':e.clientY}
+    }
+    function zoomed() {
+        var t = d3.event.transform;
+        mapContainer.attr("transform", `translate(${t.x}, ${t.y}) scale(${t.k})`); //改变mapContainer的位置及缩放
+        mapContainerUp.attr("transform", `translate(${t.x}, ${t.y}) scale(${t.k})`); //改变mapContainer的位置及缩放
+    }
+    
+
+    //刪除所有select option
+    //ele: Element DOM
+    function deleteAllOptions(ele){ 
+        ele.options.length=0; 
+    }
+
+    //增加select option 
+    //ele: Element DOM
+    //text: data以","分開的string
+    function addOption(ele,text,value){ 
+        let res = text.split(",");
+        let count = text.split(",").length;
+        for(let i = 0 ; i < count ; i++)
+            ele.options.add(new Option(res[i],res[i])); 
+    }
+
+    function addCheckbox(ele,text,rowLength){
+        let res = text.split(",");
+        let count = text.split(",").length;
+        var outDiv = document.createElement("div");
+        for(let i = 0 ; i < count ; i++)
+        {
+            if(i % rowLength === 0)
+                outDiv = document.createElement("div");
+            var oCheckbox = document.createElement("input");
+            var myText = document.createTextNode(res[i]);
+            oCheckbox.setAttribute("type","checkbox");
+            oCheckbox.setAttribute("id",res[i]);
+            outDiv.appendChild(oCheckbox);
+            outDiv.appendChild(myText);
+            ele.appendChild(outDiv);
+        }
+    }
+
+    function deleteAllCheckbox(ele){ 
+        const myNode = ele;
+        while (myNode.lastElementChild) {
+            myNode.removeChild(myNode.lastElementChild);
+        }
+    }
+    
+    
+
+
+    //調整textarea高度
+    function autogrow(textarea){
+    var adjustedHeight=textarea.clientHeight;
+        adjustedHeight=Math.max(textarea.scrollHeight,adjustedHeight);
+        console.log(adjustedHeight);
+        if (adjustedHeight>textarea.clientHeight){
+            if(adjustedHeight > 1000)
+                textarea.style.height = "500px";
+            else
+                textarea.style.height=adjustedHeight+'px';
+        }
+    }
+
+    function copyToClickBoard(){
+    // navigator clipboard 需要https等安全上下文
+    var content = textAreaDOM.value;
+    if (navigator.clipboard && window.isSecureContext) {
+                // navigator clipboard 向剪贴板写文本
+                return navigator.clipboard.writeText(content);
+            } else {
+                // 创建text area
+                let textArea = document.createElement("textarea");
+                textArea.value = content;
+                // 使text area不在viewport，同时设置不可见
+                textArea.style.position = "absolute";
+                textArea.style.opacity = 0;
+                textArea.style.left = "-999999px";
+                textArea.style.top = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                return new Promise((res, rej) => {
+                    // 执行复制命令并移除文本框
+                    document.execCommand('copy') ? res() : rej();
+                    textArea.remove();
+                });
+            }
+ 
+}
+</script>
+</body>
+</html>
